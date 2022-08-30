@@ -24,3 +24,7 @@ is shorthand for
     </menu>
 </side-nav>
 ```
+
+Technically, this only adds the event handler when the value of the property doesn't match the the value of "toVal", and the event handler is aborted when it matches.
+
+We are assuming the property has a standard setter which can be subscribed to.
