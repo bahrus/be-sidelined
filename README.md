@@ -11,15 +11,15 @@
 is shorthand for
 
 ```html
-<side-nav>
-    <menu be-sidelined='{
+<side-nav be-sidelined='{
         "set": "open",
-        "onClosest": ":not([is-sidelined])",
-        "to": false,
+        "onClosest": "*",
+        "toVal": false,
         "when": "document",
         "is": "click",
-        "outside": "*"
+        "outsideClosest": "*"
     }'>
+    <menu >
         ...
     </menu>
 </side-nav>
