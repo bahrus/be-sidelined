@@ -1,8 +1,8 @@
 # be-sidelined
 
 ```html
-<side-nav>
-    <menu be-sidelined>
+<side-nav be-sidelined>
+    <menu >
         ...
     </menu>
 </side-nav>

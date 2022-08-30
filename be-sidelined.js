@@ -1,76 +1,68 @@
-import {define, BeDecoratedProps, BeDecoratedCore} from 'be-decorated/be-decorated.js';
-import {register} from 'be-hive/register.js';
-import {BeSidelinedActions, BeSidelinedProps, BeSidelinedVirtualProps} from './types';
-
-export class BeSidelined extends EventTarget implements BeSidelinedActions{
-    closestRef: WeakRef<Element> | undefined;
-    async subscribeToProp({self, set, onClosest, proxy}: this): Promise<void> {
+import { define } from 'be-decorated/be-decorated.js';
+import { register } from 'be-hive/register.js';
+export class BeSidelined extends EventTarget {
+    closestRef;
+    async subscribeToProp({ self, set, onClosest, proxy }) {
         const target = self.closest(onClosest);
-        if(target === null) throw `${onClosest} 404`;
+        if (target === null)
+            throw `${onClosest} 404`;
         this.closestRef = new WeakRef(target);
-        const {subscribe} = await import('trans-render/lib/subscribe.js');
+        const { subscribe } = await import('trans-render/lib/subscribe.js');
         await subscribe(target, set, () => {
             proxy.propChangeCnt++;
         });
         proxy.propChangeCnt++;
         proxy.resolved = true;
     }
-
-    compareVals({closestRef, set, toVal}: this){
-        const ref = closestRef!.deref();
-        if(ref === undefined) return;
-        const actualVal = (<any>ref)[set];
+    compareVals({ closestRef, set, toVal }) {
+        const ref = closestRef.deref();
+        if (ref === undefined)
+            return;
+        const actualVal = ref[set];
         const valsDoNotMatch = actualVal !== toVal;
         const valsMatch = !valsDoNotMatch;
         return {
             valsDoNotMatch,
             valsMatch,
-        }
+        };
     }
-
-    #abortController: AbortController | undefined;
-    addListener({when, is, set, toVal}: this): void {
-        const target = (<any>globalThis)[when] as EventTarget;
-        if(this.#abortController !== undefined){
+    #abortController;
+    addListener({ when, is, set, toVal }) {
+        const target = globalThis[when];
+        if (this.#abortController !== undefined) {
             this.#abortController.abort();
         }
         this.#abortController = new AbortController();
-        target.addEventListener(is, ()=> {
-            if(this.closestRef === undefined) return;
+        target.addEventListener(is, () => {
+            if (this.closestRef === undefined)
+                return;
             const ref = this.closestRef.deref();
-            if(ref === undefined) return;
-            (<any>ref)[set] = toVal;
+            if (ref === undefined)
+                return;
+            ref[set] = toVal;
         });
     }
-
-    removeListener({}: this){
-        if(this.#abortController !== undefined){
+    removeListener({}) {
+        if (this.#abortController !== undefined) {
             this.#abortController.abort();
             this.#abortController = undefined;
         }
     }
-
-    async finale(proxy: Element & BeSidelinedVirtualProps, target: Element) {
-        const {unsubscribe} = await import('trans-render/lib/subscribe.js');
+    async finale(proxy, target) {
+        const { unsubscribe } = await import('trans-render/lib/subscribe.js');
         unsubscribe(target);
-
     }
-
 }
-
-export interface BeSidelined extends BeSidelinedProps{}
-
 const tagName = 'be-sidelined';
 const ifWantsToBe = 'sidelined';
 const upgrade = '*';
-
-define<BeSidelinedProps & BeDecoratedProps<BeSidelinedProps, BeSidelinedActions>, BeSidelinedActions>({
-    config:{
+define({
+    config: {
         tagName,
-        propDefaults:{
+        propDefaults: {
             upgrade,
             ifWantsToBe,
-            virtualProps: ['set', 'onClosest', 'toVal', 'when', 'is', 
+            virtualProps: ['set', 'onClosest', 'toVal', 'when', 'is',
                 'outsideClosest', 'valsDoNotMatch', 'valsMatch', 'propChangeCnt', 'closestRef'],
             proxyPropDefaults: {
                 set: 'open',
@@ -84,7 +76,7 @@ define<BeSidelinedProps & BeDecoratedProps<BeSidelinedProps, BeSidelinedActions>
                 propChangeCnt: 0
             }
         },
-        actions:{
+        actions: {
             subscribeToProp: {
                 ifAllOf: ['set', 'onClosest']
             },
@@ -99,9 +91,8 @@ define<BeSidelinedProps & BeDecoratedProps<BeSidelinedProps, BeSidelinedActions>
             }
         }
     },
-    complexPropDefaults:{
+    complexPropDefaults: {
         controller: BeSidelined
     }
 });
-
 register(ifWantsToBe, upgrade, tagName);
