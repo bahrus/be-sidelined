@@ -27,13 +27,13 @@ export class BeSidelined extends EventTarget {
             valsMatch,
         };
     }
-    #abortController;
-    addListener({ when, is, set, toVal, outsideClosest, self }) {
+    #outsideAbortController;
+    addOutsideListener({ when, is, set, toVal, outsideClosest, self }) {
         const target = globalThis[when];
-        if (this.#abortController !== undefined) {
-            this.#abortController.abort();
+        if (this.#outsideAbortController !== undefined) {
+            this.#outsideAbortController.abort();
         }
-        this.#abortController = new AbortController();
+        this.#outsideAbortController = new AbortController();
         target.addEventListener(is, (e) => {
             const outside = self.closest(outsideClosest);
             if (outside?.contains(e.target))
@@ -44,17 +44,37 @@ export class BeSidelined extends EventTarget {
             if (ref === undefined)
                 return;
             ref[set] = toVal;
+        }, {
+            signal: this.#outsideAbortController.signal
         });
     }
-    removeListener({}) {
-        if (this.#abortController !== undefined) {
-            this.#abortController.abort();
-            this.#abortController = undefined;
+    removeOutsideListener({}) {
+        if (this.#outsideAbortController !== undefined) {
+            this.#outsideAbortController.abort();
+            this.#outsideAbortController = undefined;
         }
+    }
+    #localAbortController;
+    addLocalListener({ onEventType, self, proxy }) {
+        if (this.#localAbortController !== undefined) {
+            this.#localAbortController.abort();
+        }
+        this.#localAbortController = new AbortController();
+        self.addEventListener(onEventType, e => {
+            proxy.propChangeCnt++;
+        }, {
+            signal: this.#localAbortController.signal,
+        });
     }
     async finale(proxy, target) {
         const { unsubscribe } = await import('trans-render/lib/subscribe.js');
         unsubscribe(target);
+        if (this.#localAbortController !== undefined) {
+            this.#localAbortController.abort();
+        }
+        if (this.#outsideAbortController !== undefined) {
+            this.#outsideAbortController.abort();
+        }
     }
 }
 const tagName = 'be-sidelined';
@@ -66,8 +86,11 @@ define({
         propDefaults: {
             upgrade,
             ifWantsToBe,
-            virtualProps: ['set', 'onClosest', 'toVal', 'when', 'is',
-                'outsideClosest', 'valsDoNotMatch', 'valsMatch', 'propChangeCnt', 'closestRef'],
+            virtualProps: [
+                'set', 'onClosest', 'toVal', 'when', 'is',
+                'outsideClosest', 'valsDoNotMatch', 'valsMatch',
+                'propChangeCnt', 'closestRef', 'onEventType',
+            ],
             proxyPropDefaults: {
                 set: 'open',
                 onClosest: '*',
@@ -77,8 +100,10 @@ define({
                 outsideClosest: '*',
                 valsDoNotMatch: true,
                 valsMatch: false,
-                propChangeCnt: 0
-            }
+                propChangeCnt: 0,
+                onEventType: ''
+            },
+            primaryProp: 'onEventType'
         },
         actions: {
             subscribeToProp: {
@@ -87,12 +112,13 @@ define({
             compareVals: {
                 ifAllOf: ['propChangeCnt', 'closestRef', 'set']
             },
-            addListener: {
+            addOutsideListener: {
                 ifAllOf: ['closestRef', 'set', 'when', 'valsDoNotMatch', 'outsideClosest']
             },
-            removeListener: {
+            removeOutsideListener: {
                 ifAllOf: ['valsMatch'],
-            }
+            },
+            addLocalListener: 'onEventType'
         }
     },
     complexPropDefaults: {

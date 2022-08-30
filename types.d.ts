@@ -7,7 +7,7 @@ export interface BeSidelinedVEndUserProps {
     when: string,
     is: string,
     outsideClosest: string,
-    
+    onEventType: string
 }
 
 export interface BeSidelinedVirtualProps extends BeSidelinedVEndUserProps, MinimalProxy{
@@ -24,8 +24,9 @@ export interface BeSidelinedProps extends BeSidelinedVirtualProps{
 export interface BeSidelinedActions{
     subscribeToProp(self: this): Promise<void>;
     compareVals(self: this): void;
-    addListener(self: this): void;
-    removeListener(self: this): void;
+    addOutsideListener(self: this): void;
+    removeOutsideListener(self: this): void;
+    addLocalListener(self: this): void;
     finale(proxy: Element & BeSidelinedVirtualProps, target:Element): Promise<void>; 
 }
 

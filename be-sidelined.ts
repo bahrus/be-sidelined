@@ -29,13 +29,13 @@ export class BeSidelined extends EventTarget implements BeSidelinedActions{
         }
     }
 
-    #abortController: AbortController | undefined;
-    addListener({when, is, set, toVal, outsideClosest, self}: this): void {
+    #outsideAbortController: AbortController | undefined;
+    addOutsideListener({when, is, set, toVal, outsideClosest, self}: this): void {
         const target = (<any>globalThis)[when] as EventTarget;
-        if(this.#abortController !== undefined){
-            this.#abortController.abort();
+        if(this.#outsideAbortController !== undefined){
+            this.#outsideAbortController.abort();
         }
-        this.#abortController = new AbortController();
+        this.#outsideAbortController = new AbortController();
         target.addEventListener(is, (e) => {
             
             
@@ -45,21 +45,43 @@ export class BeSidelined extends EventTarget implements BeSidelinedActions{
             const ref = this.closestRef.deref();
             if(ref === undefined) return;
             (<any>ref)[set] = toVal;
+        }, {
+            signal: this.#outsideAbortController.signal
         });
     }
 
-    removeListener({}: this){
-        if(this.#abortController !== undefined){
-            this.#abortController.abort();
-            this.#abortController = undefined;
+    removeOutsideListener({}: this){
+        if(this.#outsideAbortController !== undefined){
+            this.#outsideAbortController.abort();
+            this.#outsideAbortController = undefined;
         }
+    }
+
+    #localAbortController: AbortController | undefined;
+    addLocalListener({onEventType, self, proxy}: this): void {
+        if(this.#localAbortController !== undefined){
+            this.#localAbortController.abort();
+        }
+        this.#localAbortController = new AbortController();
+        self.addEventListener(onEventType, e => {
+            proxy.propChangeCnt++;
+        }, {
+            signal: this.#localAbortController.signal,
+        })
     }
 
     async finale(proxy: Element & BeSidelinedVirtualProps, target: Element) {
         const {unsubscribe} = await import('trans-render/lib/subscribe.js');
         unsubscribe(target);
-
+        if(this.#localAbortController !== undefined){
+            this.#localAbortController.abort();
+        }
+        if(this.#outsideAbortController !== undefined){
+            this.#outsideAbortController.abort();
+        }
     }
+
+
 
 }
 
@@ -75,8 +97,11 @@ define<BeSidelinedProps & BeDecoratedProps<BeSidelinedProps, BeSidelinedActions>
         propDefaults:{
             upgrade,
             ifWantsToBe,
-            virtualProps: ['set', 'onClosest', 'toVal', 'when', 'is', 
-                'outsideClosest', 'valsDoNotMatch', 'valsMatch', 'propChangeCnt', 'closestRef'],
+            virtualProps: [
+                'set', 'onClosest', 'toVal', 'when', 'is', 
+                'outsideClosest', 'valsDoNotMatch', 'valsMatch', 
+                'propChangeCnt', 'closestRef', 'onEventType',
+            ],
             proxyPropDefaults: {
                 set: 'open',
                 onClosest: '*',
@@ -86,8 +111,10 @@ define<BeSidelinedProps & BeDecoratedProps<BeSidelinedProps, BeSidelinedActions>
                 outsideClosest: '*',
                 valsDoNotMatch: true,
                 valsMatch: false,
-                propChangeCnt: 0
-            }
+                propChangeCnt: 0,
+                onEventType: ''
+            },
+            primaryProp: 'onEventType'
         },
         actions:{
             subscribeToProp: {
@@ -96,12 +123,13 @@ define<BeSidelinedProps & BeDecoratedProps<BeSidelinedProps, BeSidelinedActions>
             compareVals: {
                 ifAllOf: ['propChangeCnt', 'closestRef', 'set']
             },
-            addListener: {
+            addOutsideListener: {
                 ifAllOf: ['closestRef', 'set', 'when', 'valsDoNotMatch', 'outsideClosest']
             },
-            removeListener: {
+            removeOutsideListener: {
                 ifAllOf: ['valsMatch'],
-            }
+            },
+            addLocalListener: 'onEventType'
         }
     },
     complexPropDefaults:{
