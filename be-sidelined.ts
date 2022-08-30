@@ -5,9 +5,10 @@ import {BeSidelinedActions, BeSidelinedProps, BeSidelinedVirtualProps} from './t
 export class BeSidelined extends EventTarget implements BeSidelinedActions{
     closestRef: WeakRef<Element> | undefined;
     async subscribeToProp({self, set, onClosest, proxy}: this): Promise<void> {
+        console.log('iah');
         const target = self.closest(onClosest);
         if(target === null) throw `${onClosest} 404`;
-        this.closestRef = new WeakRef(target);
+        proxy.closestRef = new WeakRef(target);
         const {subscribe} = await import('trans-render/lib/subscribe.js');
         await subscribe(target, set, () => {
             proxy.propChangeCnt++;
@@ -29,13 +30,17 @@ export class BeSidelined extends EventTarget implements BeSidelinedActions{
     }
 
     #abortController: AbortController | undefined;
-    addListener({when, is, set, toVal}: this): void {
+    addListener({when, is, set, toVal, outsideClosest, self}: this): void {
         const target = (<any>globalThis)[when] as EventTarget;
         if(this.#abortController !== undefined){
             this.#abortController.abort();
         }
         this.#abortController = new AbortController();
-        target.addEventListener(is, ()=> {
+        target.addEventListener(is, (e) => {
+            
+            
+            const outside = self!.closest(outsideClosest!);
+            if(outside?.contains(e.target as Element)) return;
             if(this.closestRef === undefined) return;
             const ref = this.closestRef.deref();
             if(ref === undefined) return;
@@ -92,7 +97,7 @@ define<BeSidelinedProps & BeDecoratedProps<BeSidelinedProps, BeSidelinedActions>
                 ifAllOf: ['propChangeCnt', 'closestRef', 'set']
             },
             addListener: {
-                ifAllOf: ['closestRef', 'set', 'when', 'valsDoNotMatch']
+                ifAllOf: ['closestRef', 'set', 'when', 'valsDoNotMatch', 'outsideClosest']
             },
             removeListener: {
                 ifAllOf: ['valsMatch'],

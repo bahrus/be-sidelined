@@ -3,10 +3,11 @@ import { register } from 'be-hive/register.js';
 export class BeSidelined extends EventTarget {
     closestRef;
     async subscribeToProp({ self, set, onClosest, proxy }) {
+        console.log('iah');
         const target = self.closest(onClosest);
         if (target === null)
             throw `${onClosest} 404`;
-        this.closestRef = new WeakRef(target);
+        proxy.closestRef = new WeakRef(target);
         const { subscribe } = await import('trans-render/lib/subscribe.js');
         await subscribe(target, set, () => {
             proxy.propChangeCnt++;
@@ -27,13 +28,16 @@ export class BeSidelined extends EventTarget {
         };
     }
     #abortController;
-    addListener({ when, is, set, toVal }) {
+    addListener({ when, is, set, toVal, outsideClosest, self }) {
         const target = globalThis[when];
         if (this.#abortController !== undefined) {
             this.#abortController.abort();
         }
         this.#abortController = new AbortController();
-        target.addEventListener(is, () => {
+        target.addEventListener(is, (e) => {
+            const outside = self.closest(outsideClosest);
+            if (outside?.contains(e.target))
+                return;
             if (this.closestRef === undefined)
                 return;
             const ref = this.closestRef.deref();
@@ -84,7 +88,7 @@ define({
                 ifAllOf: ['propChangeCnt', 'closestRef', 'set']
             },
             addListener: {
-                ifAllOf: ['closestRef', 'set', 'when', 'valsDoNotMatch']
+                ifAllOf: ['closestRef', 'set', 'when', 'valsDoNotMatch', 'outsideClosest']
             },
             removeListener: {
                 ifAllOf: ['valsMatch'],
